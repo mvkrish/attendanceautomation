@@ -1,5 +1,5 @@
 # CTA affilated Tamil Schools Attendance Automation
-This project is to automate the attendance data processing for CTA affilated schools. Follwing youtube video can help you to get the credential to read the google sheet.
+This project is to automate the attendance data processing for CTA affilated schools. Follwing youtube video can help you to get the credential to read the google sheet (Sample is added here in the repo).
 
 https://www.youtube.com/watch?v=vISRn5qFrkM
 
