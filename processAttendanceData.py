@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[129]:
+# In[217]:
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -15,24 +15,23 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.alert import Alert
 
 
-# In[130]:
-#Default workingDate
+# In[218]:
+
 workingDate="09/16/2017"
-sheetName="your school google attendance sheet name"
-#This flag is set to true to run the automation as dry run so it does not save the data
-runSelenium = True
+sheetName="Kalaimagal Tamil School - 2017 Attendance"
+dryRun = True
 delayTimer=2
+attendanceDataComplete= True
 longDelayTimer=3
 saveData=False
 
 
-# In[131]:
+# In[219]:
 
-if(runSelenium):
+if(dryRun):
     print ('Automaion will be executed')
 else:
     print ('No automaion will be executed')
-#if no date is give this will run for last saturday
 if(workingDate==""):
     today = datetime.date.today()
     idx = (today.weekday() + 1) % 7
@@ -41,7 +40,7 @@ if(workingDate==""):
 "workingDate = "+ workingDate
 
 
-# In[132]:
+# In[212]:
 
 scope = ['https://spreadsheets.google.com/feeds']
 creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
@@ -50,15 +49,18 @@ pp = pprint.PrettyPrinter(indent=4)
 print ('Plumbing for reading the sheet is done')
 
 
-# In[133]:
+# In[221]:
 
 # Extract and process the values
 workbook = client.open(sheetName)
 sheet1 = workbook.get_worksheet(0)
-df=sheet1.get_all_records()
-df=pd.DataFrame(df)
+teachers=sheet1.get_all_records()
+df=pd.DataFrame(teachers)
 k=0
-totalData=[]
+noOfStudentAbsent=0
+absentData=[]
+missingInits=[]
+attendanceDataComplete= True
 totalDataAsMap={}
 #totalDataAsMap['workingDate']=workingDate
 finalDataMap={}
@@ -67,50 +69,61 @@ finalDataMap['attDataByClass']=[]
 for index, row in df.iterrows():
     if (row['ClassAttendanceSheetName']!=''):
         interSheet=workbook.worksheet(row['ClassAttendanceSheetName'])
-        totalData=[]
+        thisClassAbsentees=[]
         if(interSheet):
-            print (row['Class']+"---"+row['Name'])
+            #print ("Starting the process for "+row['Class']+"---"+row['Name'])
             classData = interSheet.get_all_records()
             totalDataAsMap['Grade']=row['Class']
             totalDataAsMap['Section']=row['Name']
             totalDataAsMap['studentData']=[]
             for student in classData:
-                
+                #print (student)
                 if(student[workingDate]=='A'):
+                    noOfStudentAbsent=noOfStudentAbsent+1
                     rowData={}
                     rowData['Student'] = student['Name']
                     rowData['Status'] = student[workingDate]
                     rowData['workingDate']=workingDate
                     rowData['Grade']=row['Class']
                     rowData['Section']=row['Name']
-                    #totalDataAsMap['studentData'].append(rowData)
-                    totalData.append(rowData)
-                totalDataAsMap['studentData']=(totalData)
+                    thisClassAbsentees.append(rowData)
+                    absentData.append(rowData)
+                totalDataAsMap['studentData']=(thisClassAbsentees)
                 k=k+1
+            if (len(totalDataAsMap['studentData'])== 0) :
+                #If all students are present we want the tearcher to confirm by giving her initials
+                    if(not str(classData[len(classData)-1][workingDate])):
+                        missingInits.append({"Teacher":row['ClassAttendanceSheetName'],
+                                            "Grade":row['Class']})
+                        attendanceDataComplete= False
             finalDataMap['attDataByClass'].append(totalDataAsMap)
             totalDataAsMap={}
+absebtdf= pd.DataFrame(absentData)
+
+print("Total number Students processed :"+ str(k-len(teachers)))
+print("Total number Students Absent :"+ str(noOfStudentAbsent))
+print("Attendance Data Complete : "+ str(attendanceDataComplete))
+absentDf
 
 
-# In[134]:
+# In[228]:
 
-pp.pprint(finalDataMap['workingDate'])
-for cls in finalDataMap['attDataByClass']:
-    if(cls['Section'] != ''):
-        pp.pprint(cls['Grade']+"="+cls['Section'])
-        for student in cls['studentData']:
-            pp.pprint("   "+student['Student']+" = "+student['Status'])
+if len(missingInits)>0:
+    print ("Data shows all present but the Teacher initials are missing for following classes : ")
+    initmissDF=pd.DataFrame(missingInits)
+    display(initmissDF)
 
 
-# In[135]:
+# In[140]:
 
-if(runSelenium):
+if(dryRun and attendanceDataComplete):
     if(saveData==False):
         print ('Automation suite will not save this')
     driver = webdriver.Chrome('./chromedriver')
     driver.get('https://www.catamilacademy.org/cta/login.aspx');
     time.sleep(delayTimer)  
-    email = driver.find_element_by_name('Txt_Mail_Id').send_keys('ctalogin')
-    driver.find_element_by_name('Txt_Password').send_keys('ctapassword')
+    email = driver.find_element_by_name('Txt_Mail_Id').send_keys('username')
+    driver.find_element_by_name('Txt_Password').send_keys('pwd')
     driver.find_element_by_name('Btn_Login').click()
     time.sleep(delayTimer)
     driver.find_element_by_id('BtnOk').click()
@@ -143,4 +156,8 @@ if(runSelenium):
         print(cls['Grade']+" - "+cls['Section']+"'s class data has been processed")
     driver.quit()
 else:
-    print ('Automation suite is not executed')
+    if(dryRun):
+        print ('Automation suite is not executed due to dryrun flag')
+    else:
+        print('Attendence data is incomplete please ask the teacher to put initials if all present')
+
